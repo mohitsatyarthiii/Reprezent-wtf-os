@@ -107,7 +107,7 @@ export default function LoginPage() {
             className="text-3xl font-bold mb-2"
             style={{ color: "var(--color-foreground)" }}
           >
-            Heek-E OS
+            Reprezent-OS
           </h1>
           <p
             className="text-sm"
