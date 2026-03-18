@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata = {
-  title: 'Heek-E OS - Agency Operating System',
+  title: 'Reprezent OS - Agency Operating System',
   description: 'Creator campaign management platform',
   icons: {
     icon: [
