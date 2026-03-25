@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { 
   Search, 
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
-export function Header({ sidebarCollapsed }) {
+export const Header = memo(function Header({ sidebarCollapsed }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [notifications, setNotifications] = useState(3);
   const [mounted, setMounted] = useState(false);
@@ -22,13 +22,13 @@ export function Header({ sidebarCollapsed }) {
     setMounted(true);
   }, []);
 
-  // Get current page name from path
-  const getPageName = () => {
+  // Get current page name from path - memoized
+  const pageName = useMemo(() => {
     const path = pathname.split('/').pop();
     return path?.charAt(0).toUpperCase() + path?.slice(1) || 'Dashboard';
-  };
+  }, [pathname]);
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen();
       setIsFullscreen(true);
@@ -36,7 +36,7 @@ export function Header({ sidebarCollapsed }) {
       document.exitFullscreen();
       setIsFullscreen(false);
     }
-  };
+  }, []);
 
   if (!mounted) return null;
 
@@ -55,7 +55,7 @@ export function Header({ sidebarCollapsed }) {
         {/* Left Section - Page Title */}
         <div className="flex items-center">
           <h1 className="text-sm font-medium" style={{ color: 'var(--color-foreground)' }}>
-            {getPageName()}
+            {pageName}
           </h1>
         </div>
 
@@ -99,8 +99,6 @@ export function Header({ sidebarCollapsed }) {
             <HelpCircle className="w-3.5 h-3.5" />
           </button>
 
-          
-
           {/* Fullscreen Toggle */}
           <button 
             onClick={toggleFullscreen}
@@ -119,4 +117,4 @@ export function Header({ sidebarCollapsed }) {
       </div>
     </header>
   );
-}
+});

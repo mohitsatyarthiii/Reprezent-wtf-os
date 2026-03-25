@@ -4,26 +4,28 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useTheme } from 'next-themes';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export default function DashboardLayout({ children }) {
   const { theme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Handle mounting for theme
+  // Handle mounting for theme and event listeners
   useEffect(() => {
     setMounted(true);
-  }, []);
-
-  // Listen for sidebar collapse events
-  useEffect(() => {
+    
+    // Listen for sidebar collapse events
     const handleSidebarChange = (e) => {
       setSidebarCollapsed(e.detail.collapsed);
     };
     
     window.addEventListener('sidebarCollapsed', handleSidebarChange);
     return () => window.removeEventListener('sidebarCollapsed', handleSidebarChange);
+  }, []);
+
+  const handleSidebarToggle = useCallback((collapsed) => {
+    setSidebarCollapsed(collapsed);
   }, []);
 
   if (!mounted) {
@@ -49,7 +51,7 @@ export default function DashboardLayout({ children }) {
         }}>
         
         {/* Sidebar */}
-        <Sidebar onCollapse={(collapsed) => setSidebarCollapsed(collapsed)} />
+        <Sidebar onCollapse={handleSidebarToggle} />
         
         {/* Header - positioned relative to sidebar */}
         <Header sidebarCollapsed={sidebarCollapsed} />

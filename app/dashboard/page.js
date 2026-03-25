@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useTheme } from 'next-themes';
@@ -72,7 +72,7 @@ const getTeam = (id) => {
 };
 
 // Notion-style Stat Card
-function StatCard({ label, value, sub, icon: Icon, onClick }) {
+const StatCard = memo(function StatCard({ label, value, sub, icon: Icon, onClick }) {
   return (
     <div
       onClick={onClick}
@@ -100,10 +100,10 @@ function StatCard({ label, value, sub, icon: Icon, onClick }) {
       </div>
     </div>
   );
-}
+});
 
 // Notion-style Status Tag
-function StatusTag({ label, meta }) {
+const StatusTag = memo(function StatusTag({ label, meta }) {
   const m = meta || { color: 'var(--color-muted-foreground)', bg: 'var(--color-muted)' };
   
   return (
@@ -117,11 +117,14 @@ function StatusTag({ label, meta }) {
       {label}
     </span>
   );
-}
+});
 
 // Notion-style Avatar
-function Avatar({ name, color, size = 28 }) {
-  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2);
+const Avatar = memo(function Avatar({ name, color, size = 28 }) {
+  const initials = useMemo(() => 
+    name.split(' ').map(n => n[0]).join('').slice(0, 2),
+    [name]
+  );
   
   return (
     <div 
@@ -149,10 +152,10 @@ function Avatar({ name, color, size = 28 }) {
       </div>
     </div>
   );
-}
+});
 
 // Notion-style Due Item
-function DueItem({ item, daysLeft, onClick }) {
+const DueItem = memo(function DueItem({ item, daysLeft, onClick }) {
   return (
     <div
       onClick={onClick}
@@ -185,7 +188,7 @@ function DueItem({ item, daysLeft, onClick }) {
       </div>
     </div>
   );
-}
+});
 
 // Notion-style Page Header
 function PageHeader({ title, subtitle, actions }) {
@@ -437,57 +440,88 @@ export default function DashboardPage() {
     };
   }, [router, supabase]);
 
-  // Calculate metrics
+  // Calculate metrics - memoized to prevent recalculation
   const isAdmin = profile?.role === 'admin';
   const isMember = profile?.role === 'member';
   const userId = profile?.id;
 
-  // Admin metrics
-  const pendingPayments = payments.filter(p => p.status === 'Pending Approval');
-  const totalPendingAmount = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-  const openRequirements = requirements.filter(r => r.status !== 'Completed');
-  const highPriorityReqs = requirements.filter(r => r.priority === 'High' && r.status !== 'Completed');
-  const activeExecutions = executions.filter(e => e.status !== 'Published');
-  const publishedExecs = executions.filter(e => e.status === 'Published');
-  const activeCampaigns = campaigns.filter(c => c.status === 'Active' || c.status === 'Live');
-  const liveCampaigns = campaigns.filter(c => c.status === 'Live');
-  const totalMargin = executions.reduce((sum, e) => sum + ((e.locked_price || 0) - (e.creator_price || 0)), 0);
-  const totalRevenue = executions.reduce((sum, e) => sum + (e.locked_price || 0), 0);
-  const totalViews = campaigns.reduce((sum, c) => 
-    sum + (c.deliverables?.reduce((s, d) => s + (d.views || 0), 0) || 0), 0);
+  // Admin metrics - memoized
+  const adminMetrics = useMemo(() => {
+    const pendingPayments = payments.filter(p => p.status === 'Pending Approval');
+    const totalPendingAmount = pendingPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const openRequirements = requirements.filter(r => r.status !== 'Completed');
+    const highPriorityReqs = requirements.filter(r => r.priority === 'High' && r.status !== 'Completed');
+    const activeExecutions = executions.filter(e => e.status !== 'Published');
+    const publishedExecs = executions.filter(e => e.status === 'Published');
+    const activeCampaigns = campaigns.filter(c => c.status === 'Active' || c.status === 'Live');
+    const liveCampaigns = campaigns.filter(c => c.status === 'Live');
+    const totalMargin = executions.reduce((sum, e) => sum + ((e.locked_price || 0) - (e.creator_price || 0)), 0);
+    const totalRevenue = executions.reduce((sum, e) => sum + (e.locked_price || 0), 0);
+    const totalViews = campaigns.reduce((sum, c) => 
+      sum + (c.deliverables?.reduce((s, d) => s + (d.views || 0), 0) || 0), 0);
 
-  // Member metrics
-  const myCampaigns = campaigns.filter(c => 
-    (c.status === 'Active' || c.status === 'Live') && 
-    (c.owner === userId || executions.some(e => e.client === c.client && e.assigned_to === userId))
-  );
-  const myRequirements = requirements.filter(r => r.assigned_to === userId && r.status !== 'Completed');
-  const myHighPriorityReqs = requirements.filter(r => r.assigned_to === userId && r.priority === 'High' && r.status !== 'Completed');
-  const myExecutions = executions.filter(e => e.assigned_to === userId);
-  const myActiveExecutions = myExecutions.filter(e => e.status !== 'Published');
-  const myReadyExecutions = myExecutions.filter(e => e.status === 'Ready for Upload');
+    return {
+      pendingPayments,
+      totalPendingAmount,
+      openRequirements,
+      highPriorityReqs,
+      activeExecutions,
+      publishedExecs,
+      activeCampaigns,
+      liveCampaigns,
+      totalMargin,
+      totalRevenue,
+      totalViews
+    };
+  }, [campaigns, requirements, executions, payments]);
 
-  // Due items
-  const today = new Date();
-  const dueItems = isMember ? [
-    ...myExecutions.filter(e => e.due).map(e => ({
-      label: `${e.creator} × ${e.client}`,
-      sub: e.status,
-      due: e.due,
-      nav: 'executions',
-      id: e.id
-    })),
-    ...myRequirements.filter(r => r.due).map(r => ({
-      label: r.title,
-      sub: r.brand,
-      due: r.due,
-      nav: 'requirements',
-      id: r.id
-    }))
-  ].filter(d => {
-    const diff = (new Date(d.due) - today) / (1000 * 60 * 60 * 24);
-    return diff >= 0 && diff <= 10;
-  }).sort((a, b) => a.due.localeCompare(b.due)) : [];
+  // Member metrics - memoized
+  const memberMetrics = useMemo(() => {
+    const myCampaigns = campaigns.filter(c => 
+      (c.status === 'Active' || c.status === 'Live') && 
+      (c.owner === userId || executions.some(e => e.client === c.client && e.assigned_to === userId))
+    );
+    const myRequirements = requirements.filter(r => r.assigned_to === userId && r.status !== 'Completed');
+    const myHighPriorityReqs = requirements.filter(r => r.assigned_to === userId && r.priority === 'High' && r.status !== 'Completed');
+    const myExecutions = executions.filter(e => e.assigned_to === userId);
+    const myActiveExecutions = myExecutions.filter(e => e.status !== 'Published');
+    const myReadyExecutions = myExecutions.filter(e => e.status === 'Ready for Upload');
+
+    return {
+      myCampaigns,
+      myRequirements,
+      myHighPriorityReqs,
+      myExecutions,
+      myActiveExecutions,
+      myReadyExecutions
+    };
+  }, [campaigns, requirements, executions, userId]);
+
+  // Due items - memoized
+  const dueItems = useMemo(() => {
+    if (!isMember) return [];
+    
+    const today = new Date();
+    return [
+      ...memberMetrics.myExecutions.filter(e => e.due).map(e => ({
+        label: `${e.creator} × ${e.client}`,
+        sub: e.status,
+        due: e.due,
+        nav: 'executions',
+        id: e.id
+      })),
+      ...memberMetrics.myRequirements.filter(r => r.due).map(r => ({
+        label: r.title,
+        sub: r.brand,
+        due: r.due,
+        nav: 'requirements',
+        id: r.id
+      }))
+    ].filter(d => {
+      const diff = (new Date(d.due) - today) / (1000 * 60 * 60 * 24);
+      return diff >= 0 && diff <= 10;
+    }).sort((a, b) => a.due.localeCompare(b.due));
+  }, [isMember, memberMetrics.myExecutions, memberMetrics.myRequirements]);
 
   if (loading) {
     return (
@@ -500,10 +534,10 @@ export default function DashboardPage() {
   // Member Dashboard
   if (isMember) {
     const memberStats = {
-      activeCampaigns: myCampaigns.length,
-      openRequirements: myRequirements.length,
-      activeExecutions: myActiveExecutions.length,
-      totalTasks: myRequirements.length + myActiveExecutions.length
+      activeCampaigns: memberMetrics.myCampaigns.length,
+      openRequirements: memberMetrics.myRequirements.length,
+      activeExecutions: memberMetrics.myActiveExecutions.length,
+      totalTasks: memberMetrics.myRequirements.length + memberMetrics.myActiveExecutions.length
     };
 
     return (
@@ -515,29 +549,29 @@ export default function DashboardPage() {
         <div className="grid grid-cols-4 gap-3 mb-8">
           <StatCard
             label="Active Campaigns"
-            value={myCampaigns.length}
-            sub={`${myCampaigns.filter(c => c.status === 'Live').length} live`}
+            value={memberMetrics.myCampaigns.length}
+            sub={`${memberMetrics.myCampaigns.filter(c => c.status === 'Live').length} live`}
             icon={Megaphone}
             onClick={() => router.push('/dashboard/campaigns')}
           />
           <StatCard
             label="Open Requirements"
-            value={myRequirements.length}
-            sub={`${myHighPriorityReqs.length} high priority`}
+            value={memberMetrics.myRequirements.length}
+            sub={`${memberMetrics.myHighPriorityReqs.length} high priority`}
             icon={FileText}
             onClick={() => router.push('/dashboard/requirements')}
           />
           <StatCard
             label="Active Executions"
-            value={myActiveExecutions.length}
-            sub={`${myReadyExecutions.length} ready`}
+            value={memberMetrics.myActiveExecutions.length}
+            sub={`${memberMetrics.myReadyExecutions.length} ready`}
             icon={PlayCircle}
             onClick={() => router.push('/dashboard/executions')}
           />
           <StatCard
             label="Completion Rate"
-            value={`${Math.round((myExecutions.filter(e => e.status === 'Published').length / (myExecutions.length || 1)) * 100)}%`}
-            sub={`${myExecutions.filter(e => e.status === 'Published').length} published`}
+            value={`${Math.round((memberMetrics.myExecutions.filter(e => e.status === 'Published').length / (memberMetrics.myExecutions.length || 1)) * 100)}%`}
+            sub={`${memberMetrics.myExecutions.filter(e => e.status === 'Published').length} published`}
             icon={CheckCircle2}
           />
         </div>
@@ -552,6 +586,7 @@ export default function DashboardPage() {
                 <SectionHeader title="Upcoming deadlines" />
                 <div className="space-y-2">
                   {dueItems.slice(0, 4).map((item, i) => {
+                    const today = new Date();
                     const daysLeft = Math.ceil((new Date(item.due) - today) / (1000 * 60 * 60 * 24));
                     return (
                       <DueItem
@@ -567,7 +602,7 @@ export default function DashboardPage() {
             )}
 
             {/* Recent Activity */}
-            <RecentActivity executions={myExecutions} />
+            <RecentActivity executions={memberMetrics.myExecutions} />
           </div>
 
           {/* Right Column */}
@@ -579,7 +614,7 @@ export default function DashboardPage() {
                 action="View all" 
               />
               <div className="space-y-1">
-                {myCampaigns.slice(0, 4).map(cam => {
+                {memberMetrics.myCampaigns.slice(0, 4).map(cam => {
                   const meta = CAM_META[cam.status] || {};
                   const totalViews = cam.deliverables?.reduce((sum, d) => sum + (d.views || 0), 0) || 0;
                   
@@ -613,7 +648,7 @@ export default function DashboardPage() {
                   );
                 })}
                 
-                {myCampaigns.length === 0 && (
+                {memberMetrics.myCampaigns.length === 0 && (
                   <div className="py-4 text-center">
                     <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
                       No active campaigns
@@ -630,7 +665,7 @@ export default function DashboardPage() {
                 action="View all" 
               />
               <div className="space-y-1">
-                {myRequirements.slice(0, 4).map(req => {
+                {memberMetrics.myRequirements.slice(0, 4).map(req => {
                   const meta = REQ_META[req.status] || {};
                   
                   return (
@@ -665,7 +700,7 @@ export default function DashboardPage() {
                   );
                 })}
                 
-                {myRequirements.length === 0 && (
+                {memberMetrics.myRequirements.length === 0 && (
                   <div className="py-4 text-center">
                     <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
                       No open requirements
@@ -682,10 +717,10 @@ export default function DashboardPage() {
 
   // Admin Dashboard
   const adminStats = {
-    activeCampaigns: activeCampaigns.length,
-    openRequirements: openRequirements.length,
-    activeExecutions: activeExecutions.length,
-    totalMargin: totalMargin
+    activeCampaigns: adminMetrics.activeCampaigns.length,
+    openRequirements: adminMetrics.openRequirements.length,
+    activeExecutions: adminMetrics.activeExecutions.length,
+    totalMargin: adminMetrics.totalMargin
   };
 
   return (
@@ -694,7 +729,7 @@ export default function DashboardPage() {
       <QuickActions />
 
       {/* Pending Payments Alert */}
-      {pendingPayments.length > 0 && (
+      {adminMetrics.pendingPayments.length > 0 && (
         <div 
           className="mb-6 p-4 rounded-lg flex items-center gap-3"
           style={{ 
@@ -705,10 +740,10 @@ export default function DashboardPage() {
           <AlertCircle className="w-5 h-5" style={{ color: 'var(--color-muted-foreground)' }} />
           <div className="flex-1">
             <span className="text-sm font-medium" style={{ color: 'var(--color-foreground)' }}>
-              {pendingPayments.length} payment{pendingPayments.length > 1 ? 's' : ''} awaiting approval
+              {adminMetrics.pendingPayments.length} payment{adminMetrics.pendingPayments.length > 1 ? 's' : ''} awaiting approval
             </span>
             <span className="text-sm ml-2" style={{ color: 'var(--color-muted-foreground)' }}>
-              • {fmtMoney(totalPendingAmount)}
+              • {fmtMoney(adminMetrics.totalPendingAmount)}
             </span>
           </div>
           <button
@@ -725,36 +760,36 @@ export default function DashboardPage() {
       <div className="grid grid-cols-5 gap-3 mb-8">
         <StatCard
           label="Active Campaigns"
-          value={activeCampaigns.length}
-          sub={`${liveCampaigns.length} live`}
+          value={adminMetrics.activeCampaigns.length}
+          sub={`${adminMetrics.liveCampaigns.length} live`}
           icon={Megaphone}
           onClick={() => router.push('/dashboard/campaigns')}
         />
         <StatCard
           label="Open Requirements"
-          value={openRequirements.length}
-          sub={`${highPriorityReqs.length} high priority`}
+          value={adminMetrics.openRequirements.length}
+          sub={`${adminMetrics.highPriorityReqs.length} high priority`}
           icon={FileText}
           onClick={() => router.push('/dashboard/requirements')}
         />
         <StatCard
           label="Active Executions"
-          value={activeExecutions.length}
-          sub={`${publishedExecs.length} published`}
+          value={adminMetrics.activeExecutions.length}
+          sub={`${adminMetrics.publishedExecs.length} published`}
           icon={PlayCircle}
           onClick={() => router.push('/dashboard/executions')}
         />
         <StatCard
           label="Pending Payments"
-          value={fmtMoney(totalPendingAmount)}
-          sub={`${pendingPayments.length} items`}
+          value={fmtMoney(adminMetrics.totalPendingAmount)}
+          sub={`${adminMetrics.pendingPayments.length} items`}
           icon={CreditCard}
           onClick={() => router.push('/dashboard/payments')}
         />
         <StatCard
           label="Total Margin"
-          value={fmtMoney(totalMargin)}
-          sub={`${((totalMargin / totalRevenue) * 100 || 0).toFixed(1)}% margin`}
+          value={fmtMoney(adminMetrics.totalMargin)}
+          sub={`${((adminMetrics.totalMargin / adminMetrics.totalRevenue) * 100 || 0).toFixed(1)}% margin`}
           icon={TrendingUp}
         />
       </div>
@@ -814,7 +849,7 @@ export default function DashboardPage() {
             action="View all" 
           />
           <div className="space-y-1">
-            {openRequirements.slice(0, 5).map(req => {
+            {adminMetrics.openRequirements.slice(0, 5).map(req => {
               const meta = REQ_META[req.status] || {};
               const assignedTo = getTeam(req.assigned_to);
               
@@ -844,7 +879,7 @@ export default function DashboardPage() {
               );
             })}
             
-            {openRequirements.length === 0 && (
+            {adminMetrics.openRequirements.length === 0 && (
               <div className="py-4 text-center">
                 <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
                   No open requirements
@@ -861,7 +896,7 @@ export default function DashboardPage() {
             action="View all" 
           />
           <div className="space-y-1">
-            {activeExecutions.slice(0, 5).map(exe => {
+            {adminMetrics.activeExecutions.slice(0, 5).map(exe => {
               const meta = EXEC_META[exe.status] || {};
               const assignedTo = getTeam(exe.assigned_to);
               const margin = (exe.locked_price || 0) - (exe.creator_price || 0);
@@ -894,7 +929,7 @@ export default function DashboardPage() {
               );
             })}
             
-            {activeExecutions.length === 0 && (
+            {adminMetrics.activeExecutions.length === 0 && (
               <div className="py-4 text-center">
                 <p className="text-sm" style={{ color: 'var(--color-muted-foreground)' }}>
                   No active executions

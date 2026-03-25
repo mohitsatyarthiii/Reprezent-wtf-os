@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useTheme } from 'next-themes';
@@ -117,7 +117,7 @@ const AVATAR_IMAGES = {
   client: "https://i.pinimg.com/736x/5a/6e/be/5a6ebefb651b9e2a65c2980ce2424ec2.jpg"
 };
 
-export function Sidebar({ onCollapse }) {
+export const Sidebar = memo(function Sidebar({ onCollapse }) {
   const [profile, setProfile] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -166,7 +166,7 @@ export function Sidebar({ onCollapse }) {
     }));
   }, [isCollapsed, onCollapse]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       setLoggingOut(true);
       await supabase.auth.signOut();
@@ -176,30 +176,37 @@ export function Sidebar({ onCollapse }) {
       console.error('Error logging out:', error);
       setLoggingOut(false);
     }
-  };
+  }, [supabase, router]);
 
-  // Toggle sidebar collapse
-  const toggleCollapse = () => {
-    setIsCollapsed(!isCollapsed);
-  };
+  // Toggle sidebar collapse - memoized with useCallback
+  const toggleCollapse = useCallback(() => {
+    setIsCollapsed(prev => !prev);
+  }, []);
 
-  // Get avatar image
-  const getAvatarImage = () => {
+  // Get avatar image - memoized
+  const avatarImage = useMemo(() => {
     if (profile?.avatar_url) return profile.avatar_url;
     return AVATAR_IMAGES[userRole] || AVATAR_IMAGES.admin;
-  };
+  }, [profile?.avatar_url, userRole]);
 
-  // Filter nav items based on user role
-  const visibleNav = NAV_ITEMS.filter(item => item.roles.includes(userRole));
-  const visibleTools = TOOLS_ITEMS.filter(item => item.roles.includes(userRole));
+  // Filter nav items based on user role - memoized
+  const visibleNav = useMemo(() => 
+    NAV_ITEMS.filter(item => item.roles.includes(userRole)),
+    [userRole]
+  );
+  
+  const visibleTools = useMemo(() => 
+    TOOLS_ITEMS.filter(item => item.roles.includes(userRole)),
+    [userRole]
+  );
 
-  // Check if path is active - Notion uses subtle indicators
-  const isActive = (itemPath) => {
+  // Check if path is active - memoized
+  const isActive = useCallback((itemPath) => {
     if (itemPath === '/dashboard') {
       return pathname === '/dashboard';
     }
     return pathname?.startsWith(itemPath);
-  };
+  }, [pathname]);
 
   if (loading || !userRole) {
     return (
@@ -424,7 +431,7 @@ export function Sidebar({ onCollapse }) {
               /* Collapsed user avatar - just shows avatar */
               <div className="flex flex-col items-center gap-2">
                 <img
-                  src={getAvatarImage()}
+                  src={avatarImage}
                   alt={userRole}
                   className="w-8 h-8 rounded-md object-cover"
                 />
@@ -436,7 +443,7 @@ export function Sidebar({ onCollapse }) {
               <>
                 <div className="flex items-center gap-2 px-2 py-1.5">
                   <img
-                    src={getAvatarImage()}
+                    src={avatarImage}
                     alt={userRole}
                     className="w-6 h-6 rounded-md object-cover flex-shrink-0"
                   />
@@ -474,4 +481,4 @@ export function Sidebar({ onCollapse }) {
       </div>
     </>
   );
-}
+});
