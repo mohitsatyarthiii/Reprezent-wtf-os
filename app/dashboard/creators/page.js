@@ -973,12 +973,13 @@ export default function CreatorsPage() {
     fetchCreators();
   }, []);
 
-  const fetchCreators = async () => {
+const fetchCreators = async () => {
     try {
       const { data, error } = await supabase
         .from('creators')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500000); // Set to your expected maximum
 
       if (error) throw error;
       setCreators(data || []);
