@@ -55,12 +55,12 @@ import {
 } from 'lucide-react';
 
 const PLATFORMS = [
-  { id: 'youtube', label: 'YouTube', icon: Youtube, color: '#ff0000' },
-  { id: 'instagram', label: 'Instagram', icon: Instagram, color: '#e4405f' },
-  { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: '#0077b5' },
-  { id: 'twitter', label: 'X (Twitter)', icon: Twitter, color: '#000000' },
-  { id: 'tiktok', label: 'TikTok', icon: Music2, color: '#000000' },
-  { id: 'twitch', label: 'Twitch', icon: Twitch, color: '#9146ff' }
+  { id: 'YouTube', label: 'YouTube', icon: Youtube, color: '#ff0000' },
+  { id: 'Instagram', label: 'Instagram', icon: Instagram, color: '#e4405f' },
+  { id: 'LinkedIn', label: 'LinkedIn', icon: Linkedin, color: '#0077b5' },
+  { id: 'X/Twitter', label: 'X/Twitter', icon: Twitter, color: '#000000' },
+  { id: 'TikTok', label: 'TikTok', icon: Music2, color: '#000000' },
+  { id: 'Podcast', label: 'Podcast', icon: Music2, color: '#9146ff' } // Added Podcast
 ];
 
 // Keep predefined niches as suggestions, but database values will be primary
@@ -157,6 +157,7 @@ const getSocialLink = (platform, handle) => {
       return `https://instagram.com/${cleanHandle}`;
     case 'youtube':
       return `https://youtube.com/@${cleanHandle}`;
+    case 'x/twitter':
     case 'twitter':
     case 'x':
       return `https://x.com/${cleanHandle}`;
@@ -164,8 +165,8 @@ const getSocialLink = (platform, handle) => {
       return `https://linkedin.com/in/${cleanHandle}`;
     case 'tiktok':
       return `https://tiktok.com/@${cleanHandle}`;
-    case 'twitch':
-      return `https://twitch.tv/${cleanHandle}`;
+    case 'podcast':
+      return null; // Podcasts typically don't have direct social links
     default:
       return null;
   }
@@ -175,46 +176,38 @@ const getSocialLink = (platform, handle) => {
 const getPlatformInfo = (platformName) => {
   if (!platformName) return PLATFORMS[0];
   
-  const searchTerm = platformName.toLowerCase().trim();
+  // Normalize the platform name for matching
+  const searchTerm = platformName.trim();
   
-  // Direct match
-  let platform = PLATFORMS.find(p => 
-    p.id === searchTerm || 
-    p.label.toLowerCase() === searchTerm ||
-    p.label.toLowerCase().includes(searchTerm)
-  );
+  // Direct match first (case sensitive)
+  let platform = PLATFORMS.find(p => p.id === searchTerm || p.label === searchTerm);
   
-  // If YouTube is written as "Youtube" or "youtube"
-  if (!platform && searchTerm.includes('youtube')) {
-    platform = PLATFORMS.find(p => p.id === 'youtube');
+  // Case insensitive match
+  if (!platform) {
+    platform = PLATFORMS.find(p => 
+      p.id.toLowerCase() === searchTerm.toLowerCase() || 
+      p.label.toLowerCase() === searchTerm.toLowerCase()
+    );
   }
   
-  // If Instagram is written in any variation
-  if (!platform && searchTerm.includes('instagram')) {
-    platform = PLATFORMS.find(p => p.id === 'instagram');
+  // Handle variations
+  if (!platform) {
+    const lower = searchTerm.toLowerCase();
+    if (lower.includes('youtube')) platform = PLATFORMS.find(p => p.id === 'YouTube');
+    else if (lower.includes('instagram') || lower === 'ig') platform = PLATFORMS.find(p => p.id === 'Instagram');
+    else if (lower.includes('linkedin')) platform = PLATFORMS.find(p => p.id === 'LinkedIn');
+    else if (lower.includes('twitter') || lower.includes('x/') || lower === 'x') platform = PLATFORMS.find(p => p.id === 'X/Twitter');
+    else if (lower.includes('tiktok') || lower.includes('tik tok')) platform = PLATFORMS.find(p => p.id === 'TikTok');
+    else if (lower.includes('podcast')) platform = PLATFORMS.find(p => p.id === 'Podcast');
   }
   
-  // If LinkedIn
-  if (!platform && searchTerm.includes('linkedin')) {
-    platform = PLATFORMS.find(p => p.id === 'linkedin');
-  }
-  
-  // If Twitter/X
-  if (!platform && (searchTerm.includes('twitter') || searchTerm === 'x')) {
-    platform = PLATFORMS.find(p => p.id === 'twitter');
-  }
-  
-  // If TikTok
-  if (!platform && searchTerm.includes('tiktok')) {
-    platform = PLATFORMS.find(p => p.id === 'tiktok');
-  }
-  
-  // If Twitch
-  if (!platform && searchTerm.includes('twitch')) {
-    platform = PLATFORMS.find(p => p.id === 'twitch');
-  }
-  
-  return platform || { id: 'unknown', label: platformName || 'Unknown', icon: Globe, color: '#71717a' }; // Default to first platform if no match
+  // If still no match, return unknown platform with the original name
+  return platform || { 
+    id: 'unknown', 
+    label: platformName, 
+    icon: Globe, 
+    color: '#71717a' 
+  };
 };
 
 // Notion-style Status Tag
