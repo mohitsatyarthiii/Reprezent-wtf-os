@@ -214,7 +214,7 @@ const getPlatformInfo = (platformName) => {
     platform = PLATFORMS.find(p => p.id === 'twitch');
   }
   
-  return platform || PLATFORMS[0]; // Default to first platform if no match
+  return platform || { id: 'unknown', label: platformName || 'Unknown', icon: Globe, color: '#71717a' }; // Default to first platform if no match
 };
 
 // Notion-style Status Tag
@@ -359,10 +359,10 @@ function TableRow({ creator, onMenuClick }) {
 
       {/* Niche */}
       <div className="flex items-center">
-        <span className="text-sm truncate" style={{ color: 'var(--color-foreground)' }}>
-          {creator.niche || '—'}
-        </span>
-      </div>
+  <span className="text-sm truncate" style={{ color: 'var(--color-foreground)' }}>
+    {creator.niche || '—'}  {/* Make sure this is creator.niche */}
+  </span>
+</div>
 
       {/* Followers */}
       <div className="flex items-center">
