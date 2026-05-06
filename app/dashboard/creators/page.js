@@ -58,15 +58,19 @@ const PLATFORMS = [
   { id: 'youtube', label: 'YouTube', icon: Youtube, color: '#ff0000' },
   { id: 'instagram', label: 'Instagram', icon: Instagram, color: '#e4405f' },
   { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, color: '#0077b5' },
-  { id: 'twitter', label: 'X', icon: Twitter, color: '#000000' },
+  { id: 'twitter', label: 'X (Twitter)', icon: Twitter, color: '#000000' },
   { id: 'tiktok', label: 'TikTok', icon: Music2, color: '#000000' },
   { id: 'twitch', label: 'Twitch', icon: Twitch, color: '#9146ff' }
 ];
 
-const CREATOR_NICHES = [
+// Keep predefined niches as suggestions, but database values will be primary
+const SUGGESTED_NICHES = [
   "AI/ML", "SaaS", "Developer Tools", "Productivity", "Design", "Marketing",
   "Startups", "No-Code", "Data Science", "DevOps", "Cybersecurity", "Fintech",
-  "EdTech", "B2B", "E-commerce", "Gaming", "Crypto/Web3", "Cloud Computing"
+  "EdTech", "B2B", "E-commerce", "Gaming", "Crypto/Web3", "Cloud Computing",
+  "Fashion", "Beauty", "Lifestyle", "Travel", "Food", "Fitness", "Music",
+  "Comedy", "Education", "Tech", "Business", "Finance", "Health", "Sports",
+  "Entertainment", "Art", "Photography", "DIY", "Parenting", "Pets"
 ];
 
 const COUNTRIES = [
@@ -167,6 +171,52 @@ const getSocialLink = (platform, handle) => {
   }
 };
 
+// Find platform info - case insensitive matching
+const getPlatformInfo = (platformName) => {
+  if (!platformName) return PLATFORMS[0];
+  
+  const searchTerm = platformName.toLowerCase().trim();
+  
+  // Direct match
+  let platform = PLATFORMS.find(p => 
+    p.id === searchTerm || 
+    p.label.toLowerCase() === searchTerm ||
+    p.label.toLowerCase().includes(searchTerm)
+  );
+  
+  // If YouTube is written as "Youtube" or "youtube"
+  if (!platform && searchTerm.includes('youtube')) {
+    platform = PLATFORMS.find(p => p.id === 'youtube');
+  }
+  
+  // If Instagram is written in any variation
+  if (!platform && searchTerm.includes('instagram')) {
+    platform = PLATFORMS.find(p => p.id === 'instagram');
+  }
+  
+  // If LinkedIn
+  if (!platform && searchTerm.includes('linkedin')) {
+    platform = PLATFORMS.find(p => p.id === 'linkedin');
+  }
+  
+  // If Twitter/X
+  if (!platform && (searchTerm.includes('twitter') || searchTerm === 'x')) {
+    platform = PLATFORMS.find(p => p.id === 'twitter');
+  }
+  
+  // If TikTok
+  if (!platform && searchTerm.includes('tiktok')) {
+    platform = PLATFORMS.find(p => p.id === 'tiktok');
+  }
+  
+  // If Twitch
+  if (!platform && searchTerm.includes('twitch')) {
+    platform = PLATFORMS.find(p => p.id === 'twitch');
+  }
+  
+  return platform || PLATFORMS[0]; // Default to first platform if no match
+};
+
 // Notion-style Status Tag
 function StatusTag({ status }) {
   const stat = STATUSES.find(s => s.label === status || s.id === status?.toLowerCase()) || STATUSES[2];
@@ -184,9 +234,9 @@ function StatusTag({ status }) {
   );
 }
 
-// Notion-style Platform Tag
+// Notion-style Platform Tag - Now handles any platform name from database
 function PlatformTag({ platform }) {
-  const plat = PLATFORMS.find(p => p.label === platform || p.id === platform?.toLowerCase()) || PLATFORMS[0];
+  const plat = getPlatformInfo(platform);
   const Icon = plat.icon;
 
   return (
@@ -256,39 +306,9 @@ function SectionHeader({ title, action }) {
   );
 }
 
-// Notion-style Stat Card
-function StatCard({ label, value, sub, onClick }) {
-  return (
-    <div
-      onClick={onClick}
-      className="cursor-pointer transition-colors"
-    >
-      <div 
-        className="p-4 rounded-lg border"
-        style={{ 
-          backgroundColor: 'var(--color-card)',
-          borderColor: 'var(--color-border)',
-        }}
-      >
-        <div className="text-xs mb-1" style={{ color: 'var(--color-muted-foreground)' }}>
-          {label}
-        </div>
-        <div className="text-xl font-semibold mb-1" style={{ color: 'var(--color-foreground)' }}>
-          {value}
-        </div>
-        {sub && (
-          <div className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-            {sub}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // Notion-style Table Row
 function TableRow({ creator, onMenuClick }) {
-  const platform = PLATFORMS.find(p => p.label === creator.platform) || PLATFORMS[0];
+  const platform = getPlatformInfo(creator.platform);
   const erColor = creator.er >= 5 ? '#22c55e' : creator.er >= 3 ? '#f97316' : '#ef4444';
   const socialLink = getSocialLink(creator.platform, creator.handle);
 
@@ -327,7 +347,7 @@ function TableRow({ creator, onMenuClick }) {
             )}
           </div>
           <p className="text-xs truncate" style={{ color: 'var(--color-muted-foreground)' }}>
-            {creator.handle}
+            {creator.handle || '—'}
           </p>
         </div>
       </div>
@@ -402,7 +422,7 @@ function TableRow({ creator, onMenuClick }) {
 
 // Notion-style Creator Card
 function CreatorCard({ creator, onMenuClick }) {
-  const platform = PLATFORMS.find(p => p.label === creator.platform) || PLATFORMS[0];
+  const platform = getPlatformInfo(creator.platform);
   const socialLink = getSocialLink(creator.platform, creator.handle);
 
   return (
@@ -431,7 +451,7 @@ function CreatorCard({ creator, onMenuClick }) {
               </h3>
             )}
             <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
-              {creator.handle}
+              {creator.handle || '—'}
             </p>
           </div>
         </div>
@@ -510,8 +530,8 @@ function CreatorCard({ creator, onMenuClick }) {
   );
 }
 
-// Notion-style Creator Form
-function CreatorForm({ creator, onSave, onClose }) {
+// Notion-style Creator Form - Now with dynamic dropdowns
+function CreatorForm({ creator, onSave, onClose, availableNiches, availableCountries, availableLanguages }) {
   const [form, setForm] = useState(creator || {
     name: '',
     handle: '',
@@ -531,6 +551,18 @@ function CreatorForm({ creator, onSave, onClose }) {
     notes: '',
     verified: false
   });
+
+  // Merge suggested niches with database niches
+  const allNiches = [...new Set([...availableNiches, ...SUGGESTED_NICHES])].sort();
+  
+  // Merge predefined countries with database countries
+  const allCountries = [...new Set([
+    ...COUNTRIES.map(c => c.name),
+    ...availableCountries
+  ])].sort();
+  
+  // Merge predefined languages with database languages
+  const allLanguages = [...new Set([...LANGUAGES, ...availableLanguages])].sort();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -581,18 +613,33 @@ function CreatorForm({ creator, onSave, onClose }) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <select
-              value={form.niche}
-              onChange={(e) => setForm({ ...form, niche: e.target.value })}
-              className="w-full px-3 py-1.5 text-sm rounded border-none focus:ring-0"
-              style={{ 
-                backgroundColor: 'var(--color-muted)',
-                color: 'var(--color-foreground)',
-              }}
-            >
-              <option value="">Select niche</option>
-              {CREATOR_NICHES.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
+            <div className="relative">
+              <select
+                value={form.niche}
+                onChange={(e) => setForm({ ...form, niche: e.target.value })}
+                className="w-full px-3 py-1.5 text-sm rounded border-none focus:ring-0"
+                style={{ 
+                  backgroundColor: 'var(--color-muted)',
+                  color: 'var(--color-foreground)',
+                }}
+              >
+                <option value="">Select niche</option>
+                <optgroup label="From Database">
+                  {availableNiches.map(n => <option key={n} value={n}>{n}</option>)}
+                </optgroup>
+                <optgroup label="Suggested">
+                  {SUGGESTED_NICHES.filter(n => !availableNiches.includes(n)).map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </optgroup>
+              </select>
+              {/* Allow custom niche input if not in list */}
+              {form.niche && !allNiches.includes(form.niche) && (
+                <div className="text-xs mt-1 px-1" style={{ color: 'var(--color-muted-foreground)' }}>
+                  Custom: {form.niche}
+                </div>
+              )}
+            </div>
 
             <select
               value={form.status}
@@ -664,7 +711,14 @@ function CreatorForm({ creator, onSave, onClose }) {
             }}
           >
             <option value="">Select country</option>
-            {COUNTRIES.map(c => <option key={c.code} value={c.name}>{c.name}</option>)}
+            <optgroup label="From Database">
+              {availableCountries.map(c => <option key={c} value={c}>{c}</option>)}
+            </optgroup>
+            <optgroup label="Suggested">
+              {COUNTRIES.filter(c => !availableCountries.includes(c.name)).map(c => (
+                <option key={c.code} value={c.name}>{c.name}</option>
+              ))}
+            </optgroup>
           </select>
 
           <select
@@ -677,7 +731,14 @@ function CreatorForm({ creator, onSave, onClose }) {
             }}
           >
             <option value="">Select language</option>
-            {LANGUAGES.map(l => <option key={l} value={l}>{l}</option>)}
+            <optgroup label="From Database">
+              {availableLanguages.map(l => <option key={l} value={l}>{l}</option>)}
+            </optgroup>
+            <optgroup label="Suggested">
+              {LANGUAGES.filter(l => !availableLanguages.includes(l)).map(l => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </optgroup>
           </select>
         </div>
       </div>
@@ -787,7 +848,7 @@ function CreatorForm({ creator, onSave, onClose }) {
   );
 }
 
-// Advanced Filters Component
+// Advanced Filters Component - Now with dynamic options
 function AdvancedFilters({ 
   onClose,
   onApply,
@@ -1098,10 +1159,18 @@ export default function CreatorsPage() {
   const [viewMode, setViewMode] = useState('table');
   const [currentPage, setCurrentPage] = useState(1);
   
+  // Dynamic filter options from database
+  const [availableNiches, setAvailableNiches] = useState([]);
+  const [availableCountries, setAvailableCountries] = useState([]);
+  const [availableLanguages, setAvailableLanguages] = useState([]);
+  const [availablePlatforms, setAvailablePlatforms] = useState([]);
+  const [availableStatuses, setAvailableStatuses] = useState([]);
+  
   const supabase = createClient();
 
   useEffect(() => {
     fetchTotalCount();
+    fetchFilterOptions();
   }, []);
 
   const fetchTotalCount = async () => {
@@ -1114,6 +1183,42 @@ export default function CreatorsPage() {
       setTotalCount(count || 0);
     } catch (error) {
       console.error('Error fetching total count:', error);
+    }
+  };
+
+  // Fetch unique values from database for filters
+  const fetchFilterOptions = async () => {
+    try {
+      // Fetch all creators to extract unique values
+      const { data, error } = await supabase
+        .from('creators')
+        .select('platform, niche, country, language, status');
+
+      if (error) throw error;
+
+      if (data) {
+        // Extract unique platforms (case-insensitive)
+        const platforms = [...new Set(data.map(c => c.platform).filter(Boolean))];
+        setAvailablePlatforms(platforms.sort());
+
+        // Extract unique niches
+        const niches = [...new Set(data.map(c => c.niche).filter(Boolean))];
+        setAvailableNiches(niches.sort());
+
+        // Extract unique countries
+        const countries = [...new Set(data.map(c => c.country).filter(Boolean))];
+        setAvailableCountries(countries.sort());
+
+        // Extract unique languages
+        const languages = [...new Set(data.map(c => c.language).filter(Boolean))];
+        setAvailableLanguages(languages.sort());
+
+        // Extract unique statuses
+        const statuses = [...new Set(data.map(c => c.status).filter(Boolean))];
+        setAvailableStatuses(statuses.sort());
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
     }
   };
 
@@ -1130,6 +1235,10 @@ export default function CreatorsPage() {
         .range(from, to);
 
       if (error) throw error;
+      
+      console.log('Fetched creators:', data?.length, 'Total:', totalCount);
+      console.log('Sample creator:', data?.[0]); // Debug first creator
+      
       setAllCreators(data || []);
     } catch (error) {
       console.error('Error fetching creators:', error);
@@ -1163,6 +1272,7 @@ export default function CreatorsPage() {
       setSelectedCreator(null);
       setShowAdd(false);
       await fetchTotalCount();
+      await fetchFilterOptions(); // Refresh filter options
       fetchCreators(currentPage);
     } catch (error) {
       console.error('Error saving creator:', error);
@@ -1174,50 +1284,49 @@ export default function CreatorsPage() {
   };
 
   // Apply all filters to current page data
-  const filtered = allCreators
-    .filter(c => {
-      // Search filter
-      if (search && !c.name?.toLowerCase().includes(search.toLowerCase()) && 
-          !c.handle?.toLowerCase().includes(search.toLowerCase())) return false;
-      
-      // Platform filter
-      if (filters.platform && c.platform !== filters.platform) return false;
-      
-      // Niche filter
-      if (filters.niche && c.niche !== filters.niche) return false;
-      
-      // Country filter
-      if (filters.country && c.country !== filters.country) return false;
-      
-      // Language filter
-      if (filters.language && c.language !== filters.language) return false;
-      
-      // Status filter
-      if (filters.status && c.status !== filters.status) return false;
-      
-      // Follower range filter
-      if (filters.followerRange !== 'all') {
-        const range = FOLLOWER_RANGES.find(r => r.id === filters.followerRange);
-        if (range && (c.followers < range.min || c.followers > range.max)) return false;
-      }
-      
-      // Engagement rate range filter
-      if (filters.erRange !== 'all') {
-        const range = ENGAGEMENT_RANGES.find(r => r.id === filters.erRange);
-        if (range && (c.er < range.min || c.er > range.max)) return false;
-      }
-      
-      // Has email filter
-      if (filters.hasEmail && !c.email) return false;
-      
-      // Has phone filter
-      if (filters.hasPhone && !c.phone) return false;
-      
-      // Verified only filter
-      if (filters.verifiedOnly && !c.verified) return false;
-      
-      return true;
-    });
+  const filtered = allCreators.filter(c => {
+    // Search filter
+    if (search && !c.name?.toLowerCase().includes(search.toLowerCase()) && 
+        !c.handle?.toLowerCase().includes(search.toLowerCase())) return false;
+    
+    // Platform filter
+    if (filters.platform && c.platform !== filters.platform) return false;
+    
+    // Niche filter
+    if (filters.niche && c.niche !== filters.niche) return false;
+    
+    // Country filter
+    if (filters.country && c.country !== filters.country) return false;
+    
+    // Language filter
+    if (filters.language && c.language !== filters.language) return false;
+    
+    // Status filter
+    if (filters.status && c.status !== filters.status) return false;
+    
+    // Follower range filter
+    if (filters.followerRange !== 'all') {
+      const range = FOLLOWER_RANGES.find(r => r.id === filters.followerRange);
+      if (range && (c.followers < range.min || c.followers > range.max)) return false;
+    }
+    
+    // Engagement rate range filter
+    if (filters.erRange !== 'all') {
+      const range = ENGAGEMENT_RANGES.find(r => r.id === filters.erRange);
+      if (range && (c.er < range.min || c.er > range.max)) return false;
+    }
+    
+    // Has email filter
+    if (filters.hasEmail && !c.email) return false;
+    
+    // Has phone filter
+    if (filters.hasPhone && !c.phone) return false;
+    
+    // Verified only filter
+    if (filters.verifiedOnly && !c.verified) return false;
+    
+    return true;
+  });
 
   // Apply sorting
   const sorted = [...filtered].sort((a, b) => {
@@ -1234,15 +1343,7 @@ export default function CreatorsPage() {
     }
   });
 
-  // Calculate stats from total count (these could also be fetched separately)
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-
-  // Get unique values for filters from current data
-  const uniquePlatforms = [...new Set(allCreators.map(c => c.platform).filter(Boolean))];
-  const uniqueNiches = [...new Set(allCreators.map(c => c.niche).filter(Boolean))];
-  const uniqueCountries = [...new Set(allCreators.map(c => c.country).filter(Boolean))];
-  const uniqueLanguages = [...new Set(allCreators.map(c => c.language).filter(Boolean))];
-
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length;
 
   if (loading) {
@@ -1258,7 +1359,7 @@ export default function CreatorsPage() {
       {/* Header */}
       <PageHeader 
         title="Creators"
-        subtitle={`${totalCount} total creators in database`}
+        subtitle={`${totalCount} total creators in database · Page ${currentPage} of ${totalPages}`}
         actions={
           <div className="flex items-center gap-2">
             {/* View Toggle */}
@@ -1590,11 +1691,11 @@ export default function CreatorsPage() {
               setShowAdvancedFilters(false);
             }}
             currentFilters={filters}
-            platforms={uniquePlatforms}
-            niches={uniqueNiches}
-            countries={uniqueCountries}
-            languages={uniqueLanguages}
-            statuses={STATUSES.map(s => s.label)}
+            platforms={availablePlatforms}
+            niches={availableNiches}
+            countries={availableCountries}
+            languages={availableLanguages}
+            statuses={availableStatuses}
           />
         </Drawer>
       )}
@@ -1609,6 +1710,9 @@ export default function CreatorsPage() {
             creator={selectedCreator}
             onSave={handleSaveCreator}
             onClose={() => setSelectedCreator(null)}
+            availableNiches={availableNiches}
+            availableCountries={availableCountries}
+            availableLanguages={availableLanguages}
           />
         </Drawer>
       )}
@@ -1622,6 +1726,9 @@ export default function CreatorsPage() {
           <CreatorForm
             onSave={handleSaveCreator}
             onClose={() => setShowAdd(false)}
+            availableNiches={availableNiches}
+            availableCountries={availableCountries}
+            availableLanguages={availableLanguages}
           />
         </Drawer>
       )}
