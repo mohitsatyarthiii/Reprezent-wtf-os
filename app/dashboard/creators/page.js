@@ -49,7 +49,9 @@ import {
   AtSign,
   SlidersHorizontal,
   SortAsc,
-  SortDesc
+  SortDesc,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const PLATFORMS = [
@@ -121,6 +123,8 @@ const FOLLOWER_RANGES = [
   { id: 'mega', label: 'Mega (>1M)', min: 1000000, max: Infinity }
 ];
 
+const PAGE_SIZE = 50;
+
 // Helper functions
 const fmtN = (n) => {
   if (!n && n !== 0) return "—";
@@ -137,6 +141,30 @@ const fmtMoney = (n) => {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(n);
+};
+
+// Get platform social link
+const getSocialLink = (platform, handle) => {
+  if (!handle) return null;
+  const cleanHandle = handle.replace('@', '');
+  
+  switch (platform?.toLowerCase()) {
+    case 'instagram':
+      return `https://instagram.com/${cleanHandle}`;
+    case 'youtube':
+      return `https://youtube.com/@${cleanHandle}`;
+    case 'twitter':
+    case 'x':
+      return `https://x.com/${cleanHandle}`;
+    case 'linkedin':
+      return `https://linkedin.com/in/${cleanHandle}`;
+    case 'tiktok':
+      return `https://tiktok.com/@${cleanHandle}`;
+    case 'twitch':
+      return `https://twitch.tv/${cleanHandle}`;
+    default:
+      return null;
+  }
 };
 
 // Notion-style Status Tag
@@ -259,14 +287,14 @@ function StatCard({ label, value, sub, onClick }) {
 }
 
 // Notion-style Table Row
-function TableRow({ creator, onClick }) {
+function TableRow({ creator, onMenuClick }) {
   const platform = PLATFORMS.find(p => p.label === creator.platform) || PLATFORMS[0];
   const erColor = creator.er >= 5 ? '#22c55e' : creator.er >= 3 ? '#f97316' : '#ef4444';
+  const socialLink = getSocialLink(creator.platform, creator.handle);
 
   return (
     <div
-      onClick={onClick}
-      className="grid gap-4 px-4 py-3 hover:bg-[var(--color-muted)] transition-colors cursor-pointer group border-b"
+      className="grid gap-4 px-4 py-3 hover:bg-[var(--color-muted)] transition-colors group border-b"
       style={{
         gridTemplateColumns: 'minmax(200px, 2fr) 100px 120px 100px 100px 80px 120px 100px 100px 32px',
         borderColor: 'var(--color-border)'
@@ -277,9 +305,23 @@ function TableRow({ creator, onClick }) {
         <Avatar name={creator.name} size={32} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium truncate" style={{ color: 'var(--color-foreground)' }}>
-              {creator.name}
-            </span>
+            {socialLink ? (
+              <a
+                href={socialLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm font-medium truncate hover:underline flex items-center gap-1"
+                style={{ color: 'var(--color-foreground)' }}
+              >
+                {creator.name}
+                <ExternalLink className="w-3 h-3 flex-shrink-0 opacity-50" />
+              </a>
+            ) : (
+              <span className="text-sm font-medium truncate" style={{ color: 'var(--color-foreground)' }}>
+                {creator.name}
+              </span>
+            )}
             {creator.verified && (
               <Award className="w-3 h-3 flex-shrink-0" style={{ color: '#3b82f6' }} />
             )}
@@ -344,7 +386,13 @@ function TableRow({ creator, onClick }) {
 
       {/* Actions */}
       <div className="flex items-center justify-end">
-        <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--color-border)]">
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onMenuClick(creator);
+          }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--color-border)]"
+        >
           <MoreHorizontal className="w-3.5 h-3.5" style={{ color: 'var(--color-muted-foreground)' }} />
         </button>
       </div>
@@ -353,28 +401,52 @@ function TableRow({ creator, onClick }) {
 }
 
 // Notion-style Creator Card
-function CreatorCard({ creator, onClick }) {
+function CreatorCard({ creator, onMenuClick }) {
   const platform = PLATFORMS.find(p => p.label === creator.platform) || PLATFORMS[0];
+  const socialLink = getSocialLink(creator.platform, creator.handle);
 
   return (
     <div
-      onClick={onClick}
-      className="border rounded-lg p-4 hover:bg-[var(--color-muted)] transition-colors cursor-pointer group"
+      className="border rounded-lg p-4 hover:bg-[var(--color-muted)] transition-colors group"
       style={{ borderColor: 'var(--color-border)' }}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <Avatar name={creator.name} size={40} />
           <div>
-            <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>
-              {creator.name}
-            </h3>
+            {socialLink ? (
+              <a
+                href={socialLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium mb-1 hover:underline flex items-center gap-1"
+                style={{ color: 'var(--color-foreground)' }}
+              >
+                {creator.name}
+                <ExternalLink className="w-3 h-3 opacity-50" />
+              </a>
+            ) : (
+              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--color-foreground)' }}>
+                {creator.name}
+              </h3>
+            )}
             <p className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
               {creator.handle}
             </p>
           </div>
         </div>
-        <StatusTag status={creator.status} />
+        <div className="flex items-center gap-2">
+          <StatusTag status={creator.status} />
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onMenuClick(creator);
+            }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-[var(--color-border)]"
+          >
+            <MoreHorizontal className="w-3.5 h-3.5" style={{ color: 'var(--color-muted-foreground)' }} />
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 mb-3">
@@ -944,9 +1016,67 @@ function AdvancedFilters({
   );
 }
 
+// Pagination Component
+function Pagination({ currentPage, totalPages, totalCount, onPageChange }) {
+  return (
+    <div className="flex items-center justify-between py-3 px-4 border-t" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="text-xs" style={{ color: 'var(--color-muted-foreground)' }}>
+        Showing {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} creators
+      </div>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="p-1.5 rounded hover:bg-[var(--color-muted)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          style={{ color: 'var(--color-muted-foreground)' }}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        
+        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+          let pageNum;
+          if (totalPages <= 5) {
+            pageNum = i + 1;
+          } else if (currentPage <= 3) {
+            pageNum = i + 1;
+          } else if (currentPage >= totalPages - 2) {
+            pageNum = totalPages - 4 + i;
+          } else {
+            pageNum = currentPage - 2 + i;
+          }
+          
+          return (
+            <button
+              key={pageNum}
+              onClick={() => onPageChange(pageNum)}
+              className="w-8 h-8 text-xs rounded transition-colors"
+              style={{
+                backgroundColor: currentPage === pageNum ? 'var(--color-foreground)' : 'transparent',
+                color: currentPage === pageNum ? 'var(--color-background)' : 'var(--color-muted-foreground)',
+              }}
+            >
+              {pageNum}
+            </button>
+          );
+        })}
+        
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="p-1.5 rounded hover:bg-[var(--color-muted)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          style={{ color: 'var(--color-muted-foreground)' }}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Main Creators Page
 export default function CreatorsPage() {
-  const [creators, setCreators] = useState([]);
+  const [allCreators, setAllCreators] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState({
@@ -966,29 +1096,51 @@ export default function CreatorsPage() {
   const [selectedCreator, setSelectedCreator] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [viewMode, setViewMode] = useState('table');
+  const [currentPage, setCurrentPage] = useState(1);
   
   const supabase = createClient();
 
   useEffect(() => {
-    fetchCreators();
+    fetchTotalCount();
   }, []);
 
-const fetchCreators = async () => {
+  const fetchTotalCount = async () => {
     try {
+      const { count, error } = await supabase
+        .from('creators')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) throw error;
+      setTotalCount(count || 0);
+    } catch (error) {
+      console.error('Error fetching total count:', error);
+    }
+  };
+
+  const fetchCreators = async (page) => {
+    try {
+      setLoading(true);
+      const from = (page - 1) * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      
       const { data, error } = await supabase
         .from('creators')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(500000); // Set to your expected maximum
+        .range(from, to);
 
       if (error) throw error;
-      setCreators(data || []);
+      setAllCreators(data || []);
     } catch (error) {
       console.error('Error fetching creators:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchCreators(currentPage);
+  }, [currentPage]);
 
   const handleSaveCreator = async (creatorData) => {
     try {
@@ -1010,14 +1162,19 @@ const fetchCreators = async () => {
       
       setSelectedCreator(null);
       setShowAdd(false);
-      fetchCreators();
+      await fetchTotalCount();
+      fetchCreators(currentPage);
     } catch (error) {
       console.error('Error saving creator:', error);
     }
   };
 
-  // Apply all filters
-  const filtered = creators
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  // Apply all filters to current page data
+  const filtered = allCreators
     .filter(c => {
       // Search filter
       if (search && !c.name?.toLowerCase().includes(search.toLowerCase()) && 
@@ -1077,19 +1234,14 @@ const fetchCreators = async () => {
     }
   });
 
-  // Calculate stats
-  const totalCreators = creators.length;
-  const activeCreators = creators.filter(c => c.status === 'Active').length;
-  const withEmail = creators.filter(c => c.email).length;
-  const withPhone = creators.filter(c => c.phone).length;
-  const verifiedCount = creators.filter(c => c.verified).length;
-  const totalFollowers = creators.reduce((sum, c) => sum + (c.followers || 0), 0);
+  // Calculate stats from total count (these could also be fetched separately)
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Get unique values for filters
-  const uniquePlatforms = [...new Set(creators.map(c => c.platform).filter(Boolean))];
-  const uniqueNiches = [...new Set(creators.map(c => c.niche).filter(Boolean))];
-  const uniqueCountries = [...new Set(creators.map(c => c.country).filter(Boolean))];
-  const uniqueLanguages = [...new Set(creators.map(c => c.language).filter(Boolean))];
+  // Get unique values for filters from current data
+  const uniquePlatforms = [...new Set(allCreators.map(c => c.platform).filter(Boolean))];
+  const uniqueNiches = [...new Set(allCreators.map(c => c.niche).filter(Boolean))];
+  const uniqueCountries = [...new Set(allCreators.map(c => c.country).filter(Boolean))];
+  const uniqueLanguages = [...new Set(allCreators.map(c => c.language).filter(Boolean))];
 
   const activeFilterCount = Object.values(filters).filter(v => v && v !== 'all').length;
 
@@ -1106,7 +1258,7 @@ const fetchCreators = async () => {
       {/* Header */}
       <PageHeader 
         title="Creators"
-        subtitle={`${totalCreators} creators · ${activeCreators} active · ${withEmail} with email · ${verifiedCount} verified · ${fmtN(totalFollowers)} total followers`}
+        subtitle={`${totalCount} total creators in database`}
         actions={
           <div className="flex items-center gap-2">
             {/* View Toggle */}
@@ -1176,26 +1328,32 @@ const fetchCreators = async () => {
       {/* Status Tabs */}
       <div className="flex items-center gap-6 border-b overflow-x-auto pb-1" style={{ borderColor: 'var(--color-border)' }}>
         <button
-          onClick={() => setFilters({ ...filters, status: "" })}
+          onClick={() => {
+            setFilters({ ...filters, status: "" });
+            setCurrentPage(1);
+          }}
           className="pb-2 text-sm whitespace-nowrap transition-colors relative"
           style={{ 
             color: filters.status === "" ? 'var(--color-foreground)' : 'var(--color-muted-foreground)',
             borderBottom: filters.status === "" ? '2px solid var(--color-foreground)' : '2px solid transparent'
           }}
         >
-          All ({creators.length})
+          All ({totalCount})
         </button>
         {STATUSES.map(s => (
           <button
             key={s.id}
-            onClick={() => setFilters({ ...filters, status: s.label })}
+            onClick={() => {
+              setFilters({ ...filters, status: s.label });
+              setCurrentPage(1);
+            }}
             className="pb-2 text-sm whitespace-nowrap transition-colors relative"
             style={{ 
               color: filters.status === s.label ? 'var(--color-foreground)' : 'var(--color-muted-foreground)',
               borderBottom: filters.status === s.label ? '2px solid var(--color-foreground)' : '2px solid transparent'
             }}
           >
-            {s.label} ({creators.filter(c => c.status === s.label).length})
+            {s.label}
           </button>
         ))}
       </div>
@@ -1382,22 +1540,40 @@ const fetchCreators = async () => {
               <TableRow
                 key={creator.id}
                 creator={creator}
-                onClick={() => setSelectedCreator(creator)}
+                onMenuClick={(creator) => setSelectedCreator(creator)}
               />
             ))}
           </div>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            onPageChange={handlePageChange}
+          />
         </div>
       ) : (
         // Grid View
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {sorted.map(creator => (
-            <CreatorCard
-              key={creator.id}
-              creator={creator}
-              onClick={() => setSelectedCreator(creator)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {sorted.map(creator => (
+              <CreatorCard
+                key={creator.id}
+                creator={creator}
+                onMenuClick={(creator) => setSelectedCreator(creator)}
+              />
+            ))}
+          </div>
+          
+          {/* Pagination for Grid View */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalCount={totalCount}
+            onPageChange={handlePageChange}
+          />
+        </>
       )}
 
       {/* Advanced Filters Drawer */}
@@ -1410,6 +1586,7 @@ const fetchCreators = async () => {
             onClose={() => setShowAdvancedFilters(false)}
             onApply={(newFilters) => {
               setFilters(newFilters);
+              setCurrentPage(1);
               setShowAdvancedFilters(false);
             }}
             currentFilters={filters}
